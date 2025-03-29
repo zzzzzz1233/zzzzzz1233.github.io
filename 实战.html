@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据处理</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #8e2de2, #4a00e0); /* 紫色渐变背景 */
+            color: #00ff00; /* 使用EVA风格的绿色 */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.8); /* 添加黑色半透明背景 */
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); /* 添加绿色阴影 */
+            text-align: center;
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.5); /* 添加黑色半透明背景 */
+            color: #00ff00; /* 使用EVA风格的绿色 */
+            font-size: 1em;
+            box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.3);
+            transition: background-color 0.3s ease;
+        }
+        input[type="text"]:focus {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #00ff00, #008000); /* 使用EVA风格的绿色渐变 */
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.8);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        .result {
+            margin-top: 20px;
+            font-size: 1.2em;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        .result.show {
+            opacity: 1;
+        }
+        .error {
+            color: #ff0000; /* 使用红色表示错误 */
+            font-size: 1em;
+            margin-top: 10px;
+        }
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+        }
+        th {
+            background: rgba(0, 0, 0, 0.5);
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>数据处理</h1>
+        <input type="text" id="dataInput" placeholder="请输入用空格分隔的数字">
+        <button onclick="processData()">计算</button>
+        <div class="result" id="result"></div>
+        <div class="error" id="error"></div>
+    </div>
+
+    <script>
+        function calculateMeanAndStdDev(numbers) {
+            const mean = numbers.reduce((acc, val) => acc + val, 0) / numbers.length;
+            const variance = numbers.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / numbers.length;
+            const stdDev = Math.sqrt(variance);
+            return { mean, stdDev };
+        }
+
+        function identifyOutliers(numbers) {
+            const { q1, q3, iqr } = calculateIQR(numbers);
+            const lowerBound = q1 - 1.5 * iqr;
+            const upperBound = q3 + 1.5 * iqr;
+            return numbers.filter(num => num < lowerBound || num > upperBound);
+        }
+
+        function calculateIQR(numbers) {
+            numbers.sort((a, b) => a - b);
+            const q1 = numbers[Math.floor((numbers.length - 1) / 4)];
+            const q3 = numbers[Math.ceil((3 * (numbers.length - 1)) / 4)];
+            const iqr = q3 - q1;
+            return { q1, q3, iqr };
+        }
+
+        function processData() {
+            const input = document.getElementById('dataInput').value;
+            const resultDiv = document.getElementById('result');
+            const errorDiv = document.getElementById('error');
+            resultDiv.innerHTML = '';
+            errorDiv.innerHTML = '';
+            resultDiv.classList.remove('show');
+
+            // 验证输入
+            const values = input.split(/\s+/).filter(v => v.trim() !== '');
+            if (values.some(v => isNaN(v))) {
+                errorDiv.innerHTML = '无效输入。请输入用空格分隔的有效数字。';
+                return;
+            }
+
+            // 转换为数字
+            let numbers = values.map(Number);
+
+            // 识别并排除粗大误差
+            let outliers = [];
+            let newOutliers;
+            do {
+                newOutliers = identifyOutliers(numbers);
+                if (newOutliers.length > 0) {
+                    outliers = outliers.concat(newOutliers);
+                    numbers = numbers.filter(num => !newOutliers.includes(num));
+                }
+            } while (newOutliers.length > 0);
+
+            // 计算可靠数据的均值和标准差
+            const { mean, stdDev } = calculateMeanAndStdDev(numbers);
+
+            // 创建表格并显示结果
+            const table = document.createElement('table');
+            const headerRow = document.createElement('tr');
+            const headers = ['项目', '内容'];
+            headers.forEach(headerText => {
+                const th = document.createElement('th');
+                th.textContent = headerText;
+                headerRow.appendChild(th);
+            });
+            table.appendChild(headerRow);
+
+            const rows = [
+                ['原始数据', values.join(', ')],
+                ['粗大误差', outliers.length > 0 ? outliers.join(', ') : '无'],
+                ['可靠数据', numbers.join(', ')],
+                ['最终均值', mean.toFixed(2)],
+                ['最终标准差', stdDev.toFixed(2)]
+            ];
+
+            rows.forEach(rowData => {
+                const row = document.createElement('tr');
+                rowData.forEach(cellText => {
+                    const cell = document.createElement('td');
+                    cell.textContent = cellText;
+                    row.appendChild(cell);
+                });
+                table.appendChild(row);
+            });
+
+            resultDiv.appendChild(table);
+            resultDiv.classList.add('show');
+        }
+    </script>
+</body>
+</html>
